@@ -1,0 +1,27 @@
+name: 'streamify'
+version: "1.0.0"
+config-version: 2
+
+profile: 'streamify'
+
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+
+models:
+  streamify:
+    staging:
+      +materialized: view
+    core:
+      +materialized: table
+    
