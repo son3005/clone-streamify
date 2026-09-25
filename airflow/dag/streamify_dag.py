@@ -1,105 +1,91 @@
 import os
-from datetime import datetime
+import glob
+from datetime import datetime, timedelta
+import pandas as pd
+from sqlalchemy import create_engine, text
 
 from airflow import DAG
+from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
-from schema import schema
-from task_templates import (
-    create_external_table,
-    create_empty_table,
-    insert_job,
-    delete_external_table
-)
+
+
 
 EVENTS = ["listen_events", "page_view_events", "auth_events"]
+DATA_LAKE_PATH = "/opt/airflow/data_lake"
 
-GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
-GCP_GCS_BUCKET = os.environ.get("GCP_GCS_BUCKET")
-BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", "streamify_stg")
 
-EXECUTION_MONTH = '{{ logical_date.strftime("%-m")}}'
-EXECUTION_DAY = '{{ logical_date.strftime("%-d")}}'
-EXECUTION_HOUR = '{{ logical_date.strftime("%-H")}}'
-EXECUTION_DATETIME_STR = '{{ logical_date.strftime("%m%d%H")}}'
 
-TABLE_MAP = {f"{event.upper()}_TABLE": event for event in EVENTS}
-
-MACRO_VARS = {
-    "GCP_PROJECT_ID": GCP_PROJECT_ID,
-    "GCP_GCS_BUCKET": GCP_GCS_BUCKET,
-    "EXECUTION_DATETIME_STR": EXECUTION_DATETIME_STR
-}
-
-MARCRO_VARS.update(TABLE_MAP)
+def ingest_data_lake_to_postgres():
+    """
+    Đọc tất cả file Parquet từ Local Data Lake và nạp vào staging schema (streamify_stg) trong PostgreSQL.
+    """
+    pg_user = os.getenv("POSTGRES_USER", "streamify_user")
+    pg_pass = os.getenv("POSTGRES_PASSWORD", "streamify_password")
+    pg_host = os.getenv("POSTGRES_HOST", "clone-streamify-postgres-1")
+    pg_port = os.getenv("POSTGRES_PORT", "5432")
+    pg_db = os.getenv("POSTGRES_DB", "streamify")
+    db_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+    engine = create_engine(db_url)
+    # Đảm bảo schema staging luôn tồn tại
+    with engine.begin() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS streamify_stg;"))
+    total_rows = 0
+    for event in EVENTS:
+        files = glob.glob(f"{DATA_LAKE_PATH}/{event}/**/*.parquet", recursive=True)
+        valid_files = [f for f in files if os.path.getsize(f) > 0]
+        if not valid_files:
+            print(f"[INFO] Không tìm thấy file Parquet hợp lệ cho: {event}")
+            continue
+        print(f"[INFO] Tìm thấy {len(valid_files)} file Parquet cho: {event}")
+        df_list = [pd.read_parquet(f) for f in valid_files]
+        df = pd.concat(df_list, ignore_index=True)
+        df.columns = [c.lower() for c in df.columns]
+        # Nạp vào bảng staging tương ứng (ghi đè để cập nhật bản mới nhất)
+        df.to_sql(name=event, con=engine, schema="streamify_stg", if_exists="replace", index=False)
+        print(f"[SUCCESS] Đã nạp {len(df)} dòng vào streamify_stg.{event}")
+        total_rows += len(df)
+    print(f"[DONE] Hoàn tất nạp Data Lake vào PostgreSQL Staging. Tổng cộng: {total_rows} dòng.")
 
 default_args = {
-    "owner": "airflow"
+    "owner": "airflow",
+    "depends_on_past": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=1),
 }
 
 with DAG(
     dag_id = f"streamify_dag",
     default_args = default_args,
-    description= "Hourly data pipline to generate dims and facts for streamify",
+    description= "Local pipeline: Data Lake (Parquet) -> Postgres Staging -> dbt Data Warehouse",
     schedule_interval= "5 * * * *",
     start_date= datetime(2024,9,24,18),
     catchup = False,
     max_active_runs=1,
-    user_defined_macros=MACRO_VARS,
-    tags = ["streamify"]
+    tags = ["streamify","local"]
 ) as dag:
-    
-    initate_dbt_task = BashOperator(
+    # 1. Import Data from Data Lake to Postgres Staging
+    initate_task = PythonOperator(
         task_id = "db_initiate",
-        bash_command = f"cd /dbt deps && dbt seed --select state_codes --project-dir . --target prod"
+        python_callable=ingest_data_lake_to_postgres  
     )
 
+    # 2. Load seed files into Data Warehouse
     execute_dbt_task = BashOperator(
         task_id = "dbt_streamify_run",
-        bash_command = "cd /dbt deps && dbt run --project-dir . --target prod"
+        bash_command = "dbt seed --select state_codes --project-dir /dbt --profiles-dir /dbt --target prod"
     )
 
-    for event in EVENTS:
-            staging_table_name = event
-            insert_query = f"{{% include 'sql/{event}.sql' %}}"
-            external_table_name = f'{staging_table_name}_{EXECUTION_DATETIME_STR}'
-            events_data_path = f"{staging_table_name}/month={EXECUTION_MONTH}/day={EXECUTION_DAY}/hour={EXECUTION_HOUR}/"
-            events_chema = schema[event]
-    
-    create_external_table_task = create_external_table(
-        event,
-        GCP_PROJECT_ID,
-        BIGQUERY_DATASET,
-        external_table_name,
-        GCP_GCS_BUCKET,
-        events_data_path
+    # 3. Run 7 models dbt 
+    dbt_run_task = BashOperator(
+        task_id="dbt_run",
+        bash_command="dbt run --project-dir /dbt --profiles-dir /dbt --target prod"
     )
 
-    create_empty_table_task = create_empty_table(
-        event,
-        GCP_PROJECT_ID,
-        BIGQUERY_DATASET,
-        staging_table_name,
-        events_chema
+    # 4. Test
+    dbt_test_task = BashOperator(
+        task_id="dbt_test",
+        bash_command="dbt test --project-dir /dbt --profiles-dir /dbt --target prod"
     )
 
-    insert_job_task = insert_job(
-        event,
-        insert_query,
-        BIGQUERY_DATASET,
-        GCP_PROJECT_ID
-    )
-
-    delete_external_table_task = delete_external_table(
-        event,
-        GCP_PROJECT_ID,
-        BIGQUERY_DATASET,
-        external_table_name
-    )
-
-    create_external_table_task >> \
-        create_empty_table_task >> \
-        execute_insert_query_task >> \
-        delete_external_table_task >> \
-        initate_dbt_task >> \
-        execute_dbt_task        
+    initate_task >> execute_dbt_task >> dbt_run_task >> dbt_test_task
