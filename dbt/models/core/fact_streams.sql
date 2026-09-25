@@ -1,28 +1,26 @@
-{{config(
-    materialized='table',
-    partition_by= {
-        "field": "ts",
-        "date_type": "timestamp",
-        "granularity": "hour"
-    }
-)}}
+{{ config(materialized='table') }}
 
 SELECT
-    
-FROM {{source("staging","listen_events")}}
-LEFT JOIN {{ref("dim_users")}}
+    dim_users.userKey,
+    dim_artists.artistKey,
+    dim_songs.songKey,
+    dim_datetime.dateKey,
+    dim_location.locationKey,
+    listen_events.ts
+FROM {{ source("staging", "listen_events") }}
+LEFT JOIN {{ ref("dim_users") }}
     ON listen_events.userId = dim_users.userId 
         AND CAST(listen_events.ts AS DATE) >= dim_users.rowActivationDate
         AND CAST(listen_events.ts AS DATE) < dim_users.rowExpirationDate
-LEFT JOIN {{ref("dim_artist")}}
-    ON REPLACE(REPLACE(listen_events.artist,'"',''), "\\","") = dim_artist.name
-LEFT JOIN {{ref("dim_song")}}
-    ON REPLACE(REPLACE(listen_events.artist,'"',''), "\\","") = dim_song.artist
-        AND listen_events.song = dim_song.title
-LEFT JOIN {{ref("dim_location")}}
+LEFT JOIN {{ ref("dim_artists") }}
+    ON REPLACE(REPLACE(listen_events.artist, '"', ''), '\\', '') = dim_artists.name
+LEFT JOIN {{ ref("dim_songs") }}
+    ON REPLACE(REPLACE(listen_events.artist, '"', ''), '\\', '') = dim_songs.artistName
+        AND listen_events.song = dim_songs.title
+LEFT JOIN {{ ref("dim_location") }}
     ON listen_events.city = dim_location.city
         AND listen_events.state = dim_location.stateCode
         AND listen_events.lat = dim_location.latitude
-        AND listen_events.long = dim_location.longitude
-LEFT JOIN {{ref("dim_date")}}
-    ON dim_date.date = date_trunc(listen_events.ts, HOUR)
+        AND listen_events.lon = dim_location.longitude
+LEFT JOIN {{ ref("dim_datetime") }}
+    ON dim_datetime.date = date_trunc('hour', listen_events.ts)

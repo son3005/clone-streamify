@@ -1,13 +1,11 @@
 version: 2
-
-source:
+sources:
   - name: staging
-    database: "{{ env_var('GCP_PROJECT_ID')}}"
+    database: "{{ env_var('POSTGRES_DB', 'streamify') }}"
     schema: streamify_stg
-    table:
+    tables:
       - name: listen_events
       - name: page_view_events
       - name: auth_events
       - name: songs
       - name: state_codes
-      

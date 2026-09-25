@@ -1,0 +1,52 @@
+# Local Data Lake (Parquet files, checkpoints)
+data_lake/
+*.parquet
+*.crc
+
+# Environment variables & secrets
+.env
+*.env
+*.pem
+*.key
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spark & Hadoop local logs / metadata
+derby.log
+metastore_db/
+spark-warehouse/
+*.log
+
+# dbt artifacts & local logs
+**/target/
+**/dbt_packages/
+**/dbt_modules/
+**/logs/
+**/.user.yml
+*.log
+dbt.log
+
+# Airflow local data / logs
+airflow/logs/
+airflow/airflow.cfg
+airflow/webserver_config.py
+airflow/unittests.cfg
+
+# IDE & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store

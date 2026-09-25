@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, month, hour, dayofmonth, year, udf
+from pyspark.sql.functions import from_json, col, month, hour, dayofmonth, year, udf, day
 
 
 @udf
@@ -32,6 +32,7 @@ def create_or_get_spark_session(app_name, master="local[*]"):
         .builder
         .appName(app_name)
         .master(master=master)
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3")
         .getOrCreate()
     )
     return spark
@@ -101,15 +102,15 @@ def process_stream(stream, stream_schema, topic):
         .withColumn("ts", (col("ts")/1000).cast("timestamp"))
         .withColumn("year",year(col("ts")))
         .withColumn("month",month(col("ts")))
-        .withColumn("day",day(col("ts")))
+        .withColumn("day",dayofmonth(col("ts")))
         .withColumn("hour",hour(col("ts")))
     )
 
-    if topic in ["listen_events", "page_view_events"]:
-        stream= (stream
-            .withColumn("song", string_decode("song"))
-            .withColumn("artist", string_decode("artist"))
-        )
+    # if topic in ["listen_events", "page_view_events"]:
+    #     stream= (stream
+    #         .withColumn("song", string_decode("song"))
+    #         .withColumn("artist", string_decode("artist"))
+    #     )
     
     return stream
 

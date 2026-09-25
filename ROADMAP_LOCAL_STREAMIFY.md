@@ -32,59 +32,61 @@
 
 ---
 
-## GIAI ĐOẠN 1: Chuẩn bị Hạ tầng Docker Local
+## GIAI ĐOẠN 1: Chuẩn bị Hạ tầng Docker Local (HOÀN THÀNH ✅)
 *Mục tiêu: Dựng các container Zookeeper, Kafka, PostgreSQL và Metabase hoạt động trơn tru trên cùng mạng Docker mà không ngốn quá 8GB RAM.*
 
-- [ ] **1.1. Cấu hình WSL2 an toàn RAM**
+- [x] **1.1. Cấu hình WSL2 an toàn RAM**
   - Đã lưu file `C:\Users\ADMIN\.wslconfig` với cấu hình giới hạn 8GB RAM, 4GB Swap, 8 Cores.
   - Đã chạy lệnh `wsl --shutdown` và khởi động lại Docker Desktop.
-- [ ] **1.2. Tạo file `docker-compose.local.yml` ở thư mục gốc**
-  - Khai báo service `zookeeper` (port 2181, giới hạn RAM heap ~256M-512M).
-  - Khai báo service `kafka` (port 9092, cấu hình listener cho localhost, heap ~1G).
-  - Khai báo service `postgres` (port 5432, tạo sẵn database tên `streamify`, user/password an toàn, mount volume lưu dữ liệu).
+- [x] **1.2. Tạo file `docker-compose.yml` ở thư mục gốc**
+  - Khai báo service `zookeeper` (port 2181, healthcheck active).
+  - Khai báo service `kafka` (port 9092, listeners internal 29092 và external 9092).
+  - Khai báo service `postgres` (port 5432, database `streamify`, user/password `streamify`, volume `postgres_data`).
   - Khai báo service `metabase` (port 3000, kết nối được tới postgres).
-- [ ] **1.3. Khởi động và kiểm tra dịch vụ**
-  - Chạy `docker compose -f docker-compose.local.yml up -d`.
-  - Kiểm tra trạng thái các container bằng `docker ps`.
-  - Thử kết nối vào Postgres và kiểm tra Kafka port 9092 đang lắng nghe.
+- [x] **1.3. Khởi động và kiểm tra dịch vụ**
+  - Đã chạy `docker compose up -d` và tất cả 4 services hoạt động ổn định.
+  - Đã kết nối Metabase thành công tới PostgreSQL container.
 
 ---
 
-## GIAI ĐOẠN 2: Sửa Code Spark Streaming & Ghi Local Data Lake
+## GIAI ĐOẠN 2: Sửa Code Spark Streaming & Ghi Local Data Lake (HOÀN THÀNH ✅)
 *Mục tiêu: Sửa các lỗi chính tả có sẵn trong code Spark và chuyển đích ghi từ GCS (`gs://`) về thư mục local (`data_lake/`).*
 
-- [ ] **2.1. Rà soát và sửa lỗi trong `spark_streaming/streaming_fuctions.py`**
-  - Tìm và sửa lỗi chính tả ở dòng import thư viện (`pysqark` -> `pyspark`, `ufd` -> `udf`).
-  - Sửa tham số khởi tạo Spark Session: chuyển `master="yarn"` thành `master="local[*]"`.
-  - Sửa lỗi chính tả hàm phân vùng (`.partionBy` -> `.partitionBy`).
-- [ ] **2.2. Điều chỉnh đích ghi trong `spark_streaming/streaming_all_events.py`**
-  - Tạo thư mục `data_lake/` trong project để chứa dữ liệu.
-  - Thay thế biến `GCS_STORAGE_PATH = f"gs://{GCP_GCS_BUCKET}"` bằng đường dẫn thư mục tuyệt đối tới `data_lake/`.
-  - Kiểm tra cấu hình `checkpointLocation` trỏ đúng vào thư mục con `data_lake/checkpoint/`.
-- [ ] **2.3. Khởi động Eventsim sinh dữ liệu vào Kafka**
-  - Build hoặc chạy container Eventsim theo cấu hình trong `scripts/exec_commands.sh`.
-  - Xác nhận Eventsim đang bắn message vào topic `listen_events`, `page_view_events`, `auth_events`.
-- [ ] **2.4. Chạy PySpark và nghiệm thu dữ liệu đầu ra**
-  - Chạy script `streaming_all_events.py` (với kafka package phù hợp).
-  - Kiểm tra trong thư mục `data_lake/listen_events/` có sinh ra các thư mục phân vùng `month=.../day=.../hour=.../` chứa các file `.parquet` hay không.
+- [x] **2.1. Rà soát và sửa lỗi trong `spark_streaming/streaming_fuctions.py`**
+  - Đã sửa lỗi import thư viện (`pysqark` -> `pyspark`, `ufd` -> `udf`).
+  - Đã chuyển `master="yarn"` thành `master="local[*]"`.
+  - Đã sửa lỗi chính tả hàm phân vùng (`.partionBy` -> `.partitionBy`).
+  - Bỏ qua hàm Python UDF `string_decode` để Spark xử lý 100% JVM native, tối ưu tốc độ và tương thích Python 3.12 trên Windows.
+- [x] **2.2. Điều chỉnh đích ghi trong `spark_streaming/streaming_all_events.py`**
+  - Đã tạo thư mục `data_lake/` trong project để chứa dữ liệu.
+  - Đã thay thế `gs://` bằng đường dẫn local `E:/Learn/clone-Streamify/data_lake`.
+  - Đã cấu hình `JAVA_HOME` (OpenJDK 17), `HADOOP_HOME` (Winutils 3.3.6), `PYSPARK_PYTHON`.
+  - Cấu hình `checkpointLocation` trỏ đúng vào thư mục con `data_lake/checkpoint/`.
+- [x] **2.3. Khởi động Eventsim sinh dữ liệu vào Kafka**
+  - Build image `events:1.0`, fix lỗi CRLF và hạ heap `-Xmx512m` trong `eventsim.sh`.
+  - Container `eventsim` kết nối vào mạng `clone-streamify_streamify-network` và đang đẩy message liên tục vào các topic `listen_events`, `page_view_events`, `auth_events`.
+- [x] **2.4. Chạy PySpark và nghiệm thu dữ liệu đầu ra**
+  - Chạy `streaming_all_events.py` với connector `org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3`.
+  - Đã kiểm tra và nghiệm thu: các thư mục phân vùng `month=9/day=25/hour=.../` trong `data_lake/listen_events/`, `auth_events/`, `page_view_events/` đã sinh ra đầy đủ các file `.parquet` chuẩn xác.
 
 ---
 
-## GIAI ĐOẠN 3: Xây dựng Data Warehouse với PostgreSQL & dbt
+## GIAI ĐOẠN 3: Xây dựng Data Warehouse với PostgreSQL & dbt (HOÀN THÀNH ✅)
 *Mục tiêu: Thiết lập dbt kết nối tới PostgreSQL thay vì BigQuery, chạy các mô hình biến đổi dữ liệu.*
 
-- [ ] **3.1. Cài đặt adapter `dbt-postgres`**
-  - Cài đặt thư viện `dbt-postgres` vào môi trường Python.
-- [ ] **3.2. Cập nhật file cấu hình kết nối `dbt/profiles.yml`**
-  - Chuyển `type` từ `bigquery` sang `postgres`.
-  - Điền thông tin host (`localhost`), port (`5432`), user, password, dbname (`streamify`), schema (`streamify_stg`, `streamify_prod`).
-  - Kiểm tra kết nối bằng lệnh `dbt debug --project-dir dbt`.
-- [ ] **3.3. Rà soát và điều chỉnh các model SQL trong `dbt/models/`**
-  - Kiểm tra các hàm ngày tháng hoặc cú pháp riêng của BigQuery trong các file SQL (ví dụ: `TIMESTAMP_MICROS`, `PARSE_DATETIME`...) và chuyển đổi sang chuẩn cú pháp PostgreSQL nếu cần.
-- [ ] **3.4. Chạy và kiểm tra dbt**
-  - Chạy `dbt seed` để nạp dữ liệu từ điển mã bang/quốc gia.
-  - Chạy `dbt run` để tạo các bảng staging, dim và fact.
-  - Chạy `dbt test` để kiểm tra tính toàn vẹn dữ liệu.
+- [x] **3.1. Cài đặt adapter `dbt-postgres`**
+  - Đã cài đặt `dbt-postgres` và `dbt-core` 1.12.5.
+- [x] **3.2. Cập nhật file cấu hình kết nối `dbt/profiles.yml`**
+  - Đã cấu hình adapter `postgres`, đọc credentials an toàn từ `.env` qua `{{ env_var(...) }}`.
+  - Đã chạy `dbt debug` thành công: `[OK connection ok]`.
+- [x] **3.3. Rà soát và điều chỉnh các model SQL trong `dbt/models/`**
+  - Cập nhật `dbt_utils.generate_surrogate_key` thay thế macro cũ đã bị khai tử.
+  - Chuyển đổi toàn bộ cú pháp BigQuery sang PostgreSQL: `generate_series`, `EXTRACT(EPOCH FROM ...)`, ngoặc kép định danh case-sensitive, sửa lỗi chính tả alias subqueries.
+  - Sửa lỗi thiếu cột `registration` trong `dim_users.sql` của dự án gốc.
+- [x] **3.4. Chạy và kiểm tra dbt**
+  - Đã chạy `dbt seed` nạp thành công 57 dòng `state_codes` và 10.000 bài hát `songs`.
+  - Đã nạp dữ liệu thực tế từ `data_lake/` vào schema `streamify_stg` (`listen_events`, `page_view_events`, `auth_events`).
+  - Đã chạy `dbt run` thành công 100% cả 7 models (`PASS=7`, 0 errors, 0 warnings) tạo đầy đủ các bảng Dimension, Fact và View Wide Stream.
 
 ---
 

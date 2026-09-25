@@ -4,6 +4,7 @@
 # stream_all_event.py
 
 import os
+import sys
 from streaming_fuctions import *
 from schema import schema
 
@@ -13,12 +14,15 @@ PAGE_VIEW_EVENTS_TOPIC= "page_view_events"
 AUTH_EVENTS_TOPIC= "auth_events"
 
 KAFKA_PORT= os.getenv("KAFKA_PORT", 9092)
-
 KAFKA_ADDRESS= os.getenv("KAFKA_ADDRESS","localhost")
-DATA_LAKE_PATH = os.getenv(
-    "DATA_LAKE_PATH", 
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data_lake"))
-)
+
+DATA_LAKE_PATH = os.getenv("DATA_LAKE_PATH", "E:/Learn/clone-Streamify/data_lake")
+os.environ['JAVA_HOME'] = r'C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot'
+os.environ['HADOOP_HOME'] = r'C:\hadoop-3.3.6'
+os.environ['PATH'] = os.environ.get('PATH', '') + r';C:\hadoop-3.3.6\bin'
+os.environ['PYSPARK_PYTHON'] = sys.executable
+os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
+
 
 # initialize a spark session
 spark= create_or_get_spark_session("Eventism Stream")

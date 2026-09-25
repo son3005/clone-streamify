@@ -1,20 +1,20 @@
 {{ config(materialized='table')}}
 
 WITH date_series AS (
-    SELECT *
-    FROM UNNEST(
-        GENERATE_TIMESTAMP_ARRAY(TIMESTAMP('2020-01-01'), TIMESTAMP('2025-12-31'), INTERVAL 1 HOUR)
-         ) AS date
+    SELECT generate_series(
+        TIMESTAMP '2020-01-01 00:00:00',
+        TIMESTAMP '2026-12-31 23:00:00',
+        INTERVAL '1 hour'
+    ) AS date
 )
 
 SELECT  
-    UNIX_SECONDS(date) AS dateKey,
+    EXTRACT(EPOCH FROM date)::bigint AS dateKey,
     date,
-    EXTRACT(DAYOFWEEK FROM date) AS DayOfWeek,
+    EXTRACT(DOW FROM date) + 1 AS dayOfWeek,
     EXTRACT(DAY FROM date) AS dayOfMonth,
     EXTRACT(MONTH FROM date) AS month,
     EXTRACT(WEEK FROM date) AS weekOfYear,   
     EXTRACT(YEAR FROM date) AS year,
-    CASE WHEN EXTRACT(DAYOFWEEK FROM date) IN(6,7) THEN True ESLE FALSE AS weekendFlag
+    CASE WHEN EXTRACT(DOW FROM date) IN (0, 6) THEN true ELSE false END AS weekendFlag
 FROM date_series
-

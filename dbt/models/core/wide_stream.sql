@@ -1,21 +1,12 @@
-{{
-    config(
-        materialized="view",
-        partition_by={
-            "field": "ts",
-            "date_type": "timestamp",
-            "granularity": "hour"
-        }
-    )
-}}
+{{ config(materialized="view") }}
 
 SELECT
-    fact_stream.userKey as userKey,
-    fact_stream.aristKey as aristKey,
-    fact_stream.songKey as songKey,
-    fact_stream.dateKey as dateKey,
-    fact_stream.locationKey as locationKey,
-    fact_stream.ts as timestamp
+    fact_streams.userKey as userKey,
+    fact_streams.artistKey as artistKey,
+    fact_streams.songKey as songKey,
+    fact_streams.dateKey as dateKey,
+    fact_streams.locationKey as locationKey,
+    fact_streams.ts as timestamp,
 
     dim_users.firstName AS firstName,
     dim_users.lastName AS lastName,
@@ -41,9 +32,9 @@ SELECT
     dim_artists.longitude AS artistLongitude,
     dim_artists.name AS artistName
 
-FROM {{ref("fact_streams")}}
-JOIN {{ref("dim_users")}} on fact_streams.userKey = dim_users.userKey
-JOIN {{ref("dim_songs")}} on fact_streams.songKey = dim_songs.songKey
-JOIN {{ref("dim_location")}} on fact_streams.locationKey = dim_location.locationKey
-JOIN {{ref("dim_datetime")}} on fact_streams.dateKey = dim_datetime.dateKey
-JOIN {{ref("dim_artists")}} on fact_streams.artistKey = dim_artists.artistKey
+FROM {{ ref("fact_streams") }} as fact_streams
+JOIN {{ ref("dim_users") }} as dim_users ON fact_streams.userKey = dim_users.userKey
+JOIN {{ ref("dim_songs") }} as dim_songs ON fact_streams.songKey = dim_songs.songKey
+JOIN {{ ref("dim_location") }} as dim_location ON fact_streams.locationKey = dim_location.locationKey
+JOIN {{ ref("dim_datetime") }} as dim_datetime ON fact_streams.dateKey = dim_datetime.dateKey
+JOIN {{ ref("dim_artists") }} as dim_artists ON fact_streams.artistKey = dim_artists.artistKey

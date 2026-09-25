@@ -1,16 +1,16 @@
 {{ config(materialized='table')}}
 
-SELECT {{ dbt_utils.surrogate_key(['latitude', 'longtitude','city', 'stateName'])}} as locationKey,
-    *
+SELECT {{ dbt_utils.generate_surrogate_key(['latitude', 'longitude','city', 'stateName']) }} as locationKey,    *
 FROM (
     SELECT
         distinct city,
-        COALESCE(state_codes.stateCode,"NA") as stateCode,
-        COALESCE(state_codes.stateName,"NA") as stateName,
+        COALESCE(state_codes."stateCode",'NA') as stateCode,
+        COALESCE(state_codes."stateName",'NA') as stateName,
         lat as latitude,
         lon as longitude
-    FROM {{source("staging", "listen_events")}}
-    LEFT JOIN {{ ref("state_codes")}} as listen_events.state = state_codes.state_codes
+    FROM {{source("staging", "listen_events")}} as listen_events
+    LEFT JOIN {{ ref("state_codes")}} as state_codes
+        ON listen_events.state = state_codes."stateCode"
     UNION ALL 
     SELECT  'NA','NA','NA',0,0
-)
+) as locations

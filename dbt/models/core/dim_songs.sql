@@ -1,6 +1,6 @@
 {{config(materialized="table")}}
 
-SELECT {{dbt_utils.surrogate_key(['songId'])}} as songKey,
+SELECT {{ dbt_utils.generate_surrogate_key(['songId']) }} as songKey,
     *
 FROM (
     (
@@ -14,7 +14,7 @@ FROM (
             tempo,
             title,
             year 
-        FROM {{ source("staging","songs")}}
+        FROM {{ ref("songs")}}
     )
     UNION ALL 
     SELECT 'NNNNNNNNNNNNNNNNNNN',
@@ -27,4 +27,4 @@ FROM (
                 -1,
                 'NA',
                 0
-)
+) as songs
