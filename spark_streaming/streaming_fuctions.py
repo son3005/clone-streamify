@@ -1,8 +1,8 @@
 from pyspark.sql import SparkSession
-from pysqark.sql.functions import from_json, col, month, hour, dayofmonth, year, ufd
+from pyspark.sql.functions import from_json, col, month, hour, dayofmonth, year, udf
 
 
-@ufd
+@udf
 def string_decode(s, encoding="utf-8"):
     if s:
         return (
@@ -15,7 +15,7 @@ def string_decode(s, encoding="utf-8"):
     else:
         return s
 
-def create_or_get_spark_session(app_name, master="yarn"):
+def create_or_get_spark_session(app_name, master="local[*]"):
     """
     Creates or gets a Spark Session
 
@@ -135,7 +135,7 @@ def create_file_write_stream(stream, storage_path, checkpoint_path, trigger='120
     write_stream= (stream
         .writeStream
         .format(file_format)
-        .partionBy("month","day","hour")
+        .partitionBy("month","day","hour")
         .option("path",storage_path)
         .option("checkpointLocation", checkpoint_path)
         .trigger(processingTime=trigger)

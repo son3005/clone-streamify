@@ -15,8 +15,10 @@ AUTH_EVENTS_TOPIC= "auth_events"
 KAFKA_PORT= os.getenv("KAFKA_PORT", 9092)
 
 KAFKA_ADDRESS= os.getenv("KAFKA_ADDRESS","localhost")
-GCP_GCS_BUCKET= os.getenv("GCP_GCS_BUCKET", "streamify")
-GCS_STORAGE_PATH= f"gs://{GCP_GCS_BUCKET}"
+DATA_LAKE_PATH = os.getenv(
+    "DATA_LAKE_PATH", 
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data_lake"))
+)
 
 # initialize a spark session
 spark= create_or_get_spark_session("Eventism Stream")
@@ -66,24 +68,24 @@ auth_events = process_stream(
 # write a file to storage every 2 minutes in parquet format
 listen_events_write= create_file_write_stream(
     stream=listen_events,
-    storage_path= f"{GCS_STORAGE_PATH}/{LISTEN_EVENTS_TOPIC}",
-    checkpoint_path= f"{GCS_STORAGE_PATH}/checkpoint/{LISTEN_EVENTS_TOPIC}",
+    storage_path= f"{DATA_LAKE_PATH}/{LISTEN_EVENTS_TOPIC}",
+    checkpoint_path= f"{DATA_LAKE_PATH}/checkpoint/{LISTEN_EVENTS_TOPIC}",
     trigger="120 seconds",
     output_mode="append",
     file_format="parquet"
 )
 page_view_page_events_write= create_file_write_stream(
     stream=page_view_events,
-    storage_path= f"{GCS_STORAGE_PATH}/{PAGE_VIEW_EVENTS_TOPIC}",
-    checkpoint_path= f"{GCS_STORAGE_PATH}/checkpoint/{PAGE_VIEW_EVENTS_TOPIC}",
+    storage_path= f"{DATA_LAKE_PATH}/{PAGE_VIEW_EVENTS_TOPIC}",
+    checkpoint_path= f"{DATA_LAKE_PATH}/checkpoint/{PAGE_VIEW_EVENTS_TOPIC}",
     trigger="120 seconds",
     output_mode="append",
     file_format="parquet"
 )
 auth_events_write= create_file_write_stream(
     stream=auth_events,
-    storage_path= f"{GCS_STORAGE_PATH}/{AUTH_EVENTS_TOPIC}",
-    checkpoint_path= f"{GCS_STORAGE_PATH}/checkpoint/{AUTH_EVENTS_TOPIC}",
+    storage_path= f"{DATA_LAKE_PATH}/{AUTH_EVENTS_TOPIC}",
+    checkpoint_path= f"{DATA_LAKE_PATH}/checkpoint/{AUTH_EVENTS_TOPIC}",
     trigger="120 seconds",
     output_mode="append",
     file_format="parquet"
