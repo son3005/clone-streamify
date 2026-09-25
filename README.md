@@ -15,6 +15,11 @@
 
 **Streamify** is an enterprise-grade, end-to-end data platform that simulates real-time music streaming event ingestion, processing, warehousing, and analytics (inspired by Spotify).
 
+> [!NOTE]
+> **Credit & Acknowledgments:**
+> This project is a comprehensive local re-engineering of the original GCP-based data engineering project [ankurchavda/streamify](https://github.com/ankurchavda/streamify) created by [Ankur Chavda](https://github.com/ankurchavda).
+> While the original architecture relies on Google Cloud Platform paid services (Dataproc, Google Cloud Storage, BigQuery, and Looker Studio), this repository transforms the entire pipeline into a **100% Local, Cloud-Agnostic, Zero-Cost Data Lakehouse & Warehouse** setup.
+
 ### 🌟 100% Local & Zero-Cost Architecture
 The original project was architected for Google Cloud Platform (GCS, Dataproc, BigQuery, and Looker Studio). This repository is a **complete re-engineering** into a **100% Local, Offline Data Lakehouse & Warehouse** running smoothly on a standard personal workstation (Core i5, 16GB RAM) at **zero cloud cost**:
 - **GCS Bucket** ➡️ **Local Partitioned Parquet Data Lake (`data_lake/`)**
@@ -273,5 +278,12 @@ docker compose -f airflow/docker-compose.yml up -d
 
 ## 👤 Author & Acknowledgments
 
-- **Author**: Data Engineering Practitioner
-- **Inspiration**: Based on the GCP Streamify architecture by Ankur Chavda. Re-engineered into a 100% Local, Zero-Cost Data Engineering Platform.
+- **Author**: [son3005](https://github.com/son3005)
+- **Original Project**: [ankurchavda/streamify](https://github.com/ankurchavda/streamify) by [Ankur Chavda](https://github.com/ankurchavda).
+- **Key Modifications & Re-engineering in this Repository**:
+  - **Local Data Lake**: Replaced Google Cloud Storage (GCS) with a local partitioned Parquet Data Lake (`data_lake/`).
+  - **Local PySpark Engine**: Replaced GCP Dataproc with local PySpark 3.5.3 Structured Streaming (with JDK 17 & Hadoop Winutils).
+  - **PostgreSQL Data Warehouse**: Replaced Google BigQuery with Dockerized PostgreSQL 15.
+  - **dbt Dialect Migration**: Fully migrated all BigQuery SQL models to PostgreSQL (`generate_series`, `EXTRACT(EPOCH...)`, surrogate key updates, subquery alias fixes, and schema corrections).
+  - **Resource Optimization**: Replaced CeleryExecutor with Apache Airflow 2.8 `LocalExecutor`, saving **>3GB RAM** and fitting within standard 8GB WSL2 constraints.
+  - **Metabase Local BI**: Replaced Looker Studio with self-hosted Metabase for real-time dashboards and analytics.
